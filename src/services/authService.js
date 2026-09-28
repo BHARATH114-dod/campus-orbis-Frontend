@@ -10,7 +10,12 @@ import api from './api';
 export function login({ username, password, role, collegeId }) {
   return api
     .post('/auth/login', { username, password, role, college_id: collegeId })
-    .then((res) => res.data.user);
+    .then((res) => {
+      if (res.data?.token) {
+        localStorage.setItem('campusync-token', res.data.token);
+      }
+      return res.data.user;
+    });
 }
 
 /**
@@ -18,6 +23,7 @@ export function login({ username, password, role, collegeId }) {
  * Response: { ok: true }
  */
 export function logout() {
+  localStorage.removeItem('campusync-token');
   return api.post('/auth/logout').then((res) => res.data);
 }
 

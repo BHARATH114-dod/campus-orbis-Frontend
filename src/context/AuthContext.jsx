@@ -16,9 +16,11 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Centralized 401 handling — see services/api.js's response interceptor.
   useEffect(() => {
-    const onUnauthorized = () => setUser(null);
+    const onUnauthorized = () => {
+      localStorage.removeItem('campusync-token');
+      setUser(null);
+    };
     window.addEventListener('campusync:unauthorized', onUnauthorized);
     return () => window.removeEventListener('campusync:unauthorized', onUnauthorized);
   }, []);

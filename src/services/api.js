@@ -26,13 +26,12 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// --- JWT-ready hook point (inactive today) ---------------------------------
-// api.interceptors.request.use((config) => {
-//   const token = localStorage.getItem('campusync-token');
-//   if (token) config.headers.Authorization = `Bearer ${token}`;
-//   return config;
-// });
-// -----------------------------------------------------------------------------
+// Attach Bearer token from localStorage for reliable cross-site authentication (mobile Safari/Chrome)
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('campusync-token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 // Normalize error handling: every failed call rejects with a plain object
 // { status, message } so components never need to touch Axios's response shape.
