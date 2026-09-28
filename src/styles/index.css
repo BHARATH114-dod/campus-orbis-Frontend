@@ -1,0 +1,278 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ BRAND CSS VARIABLES ============
+   Light theme redesigned as a premium white/light glassmorphism palette:
+   off-white base, dark-navy ink for readability, and a soft blue/royal-blue/
+   lavender/purple accent family. --teal/--gold/--crimson are left as-is
+   because they carry semantic meaning (success/warning/danger) across ~300
+   call sites; --purple (used for primary brand accents like buttons/avatars)
+   is remapped from its legacy green to a royal-blue/indigo so its name
+   finally matches what it renders. --surface-dark is untouched too — it
+   backs dark code blocks and the footer, not the app chrome. */
+:root {
+  --ink: #16213E;
+  --ink-light: #5B6584;
+  --paper: #F5F7FC;
+  --paper-card: rgba(255, 255, 255, 0.66);
+  --paper-card-solid: #FFFFFF;
+  --line: rgba(99, 102, 241, 0.16);
+  --purple: #5B6EF5;
+  --teal: #2f9e5b;
+  --gold: #f5a623;
+  --crimson: #d64545;
+  --shadow-color: 76, 92, 210;
+  --surface-dark: #123524;
+  --hero-primary: #2563EB;
+  --hero-secondary: #60A5FA;
+  --hero-accent: #8B7FE8;
+
+  /* New accents for the glassmorphism theme */
+  --accent-lavender: #B7A9F7;
+  --accent-purple: #8B7FE8;
+  --accent-sky: #38BDF8;
+  --glass-blur: 20px;
+  --glass-border: rgba(255, 255, 255, 0.6);
+}
+[data-theme='dark'] {
+  --ink: #EAF0FF;
+  --ink-light: #9AA6C7;
+  --paper: #0E1220;
+  --paper-card: rgba(22, 27, 46, 0.72);
+  --paper-card-solid: #161B2E;
+  --line: rgba(139, 127, 232, 0.22);
+  --shadow-color: 0, 0, 0;
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { overflow-x: hidden; width: 100%; }
+body {
+  overflow-x: hidden;
+  width: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+  transition: background-color .2s ease, color .2s ease;
+}
+img { max-width: 100%; }
+
+/* ============ AMBIENT BACKGROUND THEME (site-wide) ============
+   Soft blue + lavender glow blobs, a large faded Campus Orbis logo
+   watermark (with its globe still spinning), a couple of very slow
+   orbit rings, and slow-drifting light particles — all fixed + negative
+   z-index so they sit behind every route without pages needing to think
+   about it. See <BackgroundLayer /> for the markup. */
+.bg-glow {
+  position: fixed; inset: 0; z-index: -4; pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(56,189,248,0.16) 0%, rgba(56,189,248,0) 45%),
+    radial-gradient(circle at 92% 15%, rgba(139,127,232,0.16) 0%, rgba(139,127,232,0) 42%),
+    radial-gradient(circle at 88% 92%, rgba(91,110,245,0.14) 0%, rgba(91,110,245,0) 45%),
+    radial-gradient(circle at 8% 90%, rgba(183,169,247,0.16) 0%, rgba(183,169,247,0) 42%);
+}
+[data-theme='dark'] .bg-glow {
+  background:
+    radial-gradient(circle at 10% 10%, rgba(56,189,248,0.10) 0%, rgba(56,189,248,0) 45%),
+    radial-gradient(circle at 92% 15%, rgba(139,127,232,0.12) 0%, rgba(139,127,232,0) 42%),
+    radial-gradient(circle at 88% 92%, rgba(91,110,245,0.10) 0%, rgba(91,110,245,0) 45%),
+    radial-gradient(circle at 8% 90%, rgba(183,169,247,0.10) 0%, rgba(183,169,247,0) 42%);
+}
+
+/* Large, very faint Campus Orbis logo watermark, centred in the viewport,
+   behind all page content (spec: "place the globe in the middle/centre
+   area, not in a corner"). The globe inside keeps rotating (Logo's own
+   campus-logo__globe--spin animation, which already respects
+   prefers-reduced-motion). Kept out of the accessibility tree via
+   aria-hidden on the wrapper in BackgroundLayer. */
+.bg-logo-watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -3;
+  opacity: 0.07;
+  pointer-events: none;
+  filter: drop-shadow(0 0 140px rgba(91,110,245,0.35));
+}
+[data-theme='dark'] .bg-logo-watermark { opacity: 0.05; }
+@media (max-width: 1024px) {
+  .bg-logo-watermark { opacity: 0.06; }
+}
+@media (max-width: 640px) {
+  .bg-logo-watermark { opacity: 0.05; }
+}
+
+/* Faint orbit rings echoing the logo's orbit-ring motif, drifting at an
+   extremely slow, even pace. Purely decorative. */
+.bg-orbit-ring {
+  position: fixed;
+  z-index: -3;
+  border-radius: 50%;
+  border: 1px solid rgba(91,110,245,0.14);
+  pointer-events: none;
+  animation: orbitSpin 140s linear infinite;
+}
+.bg-orbit-ring--outer {
+  top: 50%; right: -4%;
+  width: min(70vw, 900px); height: min(70vw, 900px);
+  transform: translateY(-50%);
+}
+.bg-orbit-ring--inner {
+  top: 50%; right: 4%;
+  width: min(46vw, 600px); height: min(46vw, 600px);
+  transform: translateY(-50%);
+  border-color: rgba(139,127,232,0.14);
+  animation-duration: 100s;
+  animation-direction: reverse;
+}
+@media (max-width: 640px) {
+  .bg-orbit-ring { display: none; }
+}
+@keyframes orbitSpin {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-orbit-ring { animation: none; }
+}
+
+.bg-sprinkles { position: fixed; inset: 0; z-index: -2; pointer-events: none; overflow: hidden; }
+.sprinkle {
+  position: absolute; bottom: -6vh; border-radius: 50%;
+  background: var(--accent-sky); opacity: 0;
+  box-shadow: 0 0 6px 1px rgba(56,189,248,0.45);
+  animation: sprinkleDrift linear infinite;
+}
+.sprinkle:nth-child(3n) { background: var(--accent-lavender); box-shadow: 0 0 6px 1px rgba(183,169,247,0.5); }
+.sprinkle:nth-child(3n+1) { background: var(--purple); box-shadow: 0 0 6px 1px rgba(91,110,245,0.45); }
+[data-theme='dark'] .sprinkle { opacity: 0; }
+@keyframes sprinkleDrift {
+  0% { transform: translate(0,0); opacity: 0; }
+  8% { opacity: 0.45; }
+  92% { opacity: 0.3; }
+  100% { transform: translate(18px,-112vh); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sprinkle { animation: none; display: none; }
+}
+
+/* ============ GLASSMORPHISM CARDS ============
+   `.bg-paper-card` is the shared card class used across every dashboard,
+   modal, sidebar-adjacent panel, etc. (Tailwind maps it to
+   background-color: var(--paper-card) via tailwind.config). Declaring it
+   again here — after @tailwind utilities — layers frosted-glass behavior
+   (blur, soft border tint, gentle shadow) on top of every card in the app
+   in one place, without editing dozens of individual components. */
+.bg-paper-card {
+  background-color: var(--paper-card);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  box-shadow: 0 8px 32px rgba(var(--shadow-color), 0.10), 0 1px 2px rgba(var(--shadow-color), 0.06);
+}
+
+/* Small bordered icon/utility buttons (theme toggle, notification bell,
+   hamburger, close buttons, header chrome). Applied explicitly via the
+   `.icon-btn-glass` class in JSX rather than globally on `.border-line`
+   (which is also used for plain dividers, inputs, and table borders where
+   a frosted background would be unwanted). */
+.icon-btn-glass {
+  background-color: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+[data-theme='dark'] .icon-btn-glass {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* ============ SIDEBAR (light glass, not a dark panel) ============ */
+.sidebar-glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(238,240,255,0.74));
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  color: var(--ink);
+  box-shadow: 4px 0 32px rgba(var(--shadow-color), 0.08);
+}
+[data-theme='dark'] .sidebar-glass {
+  background: linear-gradient(180deg, rgba(20,24,42,0.9), rgba(20,24,42,0.78));
+}
+.sidebar-nav-active {
+  background: linear-gradient(135deg, rgba(91,110,245,0.16), rgba(139,127,232,0.16));
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgba(91,110,245,0.28), 0 0 18px rgba(91,110,245,0.12);
+}
+
+/* ============ LOGO (cap + orbit ring, static) with a spinning globe ============
+   layered on top. Percentages below are the globe's position/size inside the
+   source artwork and only line up correctly because .campus-logo keeps the
+   same 480:575 aspect ratio the base image was exported at. */
+.campus-logo {
+  position: relative;
+  display: inline-block;
+  aspect-ratio: 480 / 575;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.campus-logo__base {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+.campus-logo__globe-slot {
+  position: absolute;
+  left: 32.3%;
+  top: 38.1%;
+  width: 46.2%;
+  height: 38.6%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+}
+.campus-logo__globe {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
+}
+.campus-logo__globe--spin {
+  animation: campusLogoSpin 7s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+@keyframes campusLogoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .campus-logo__globe--spin { animation: none; }
+  .bg-logo-watermark .campus-logo__globe--spin { animation: none; }
+}
+
+/* Full-page splash — logo alone, centered, used on first load and while
+   switching between pages/dashboards (see LoadingSpinner's fullPage mode). */
+.campus-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+}
+[data-theme='dark'] .campus-splash { background: var(--surface-dark); }
+.campus-splash__inner {
+  animation: campusSplashPulse 2.4s ease-in-out infinite;
+}
+@keyframes campusSplashPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.035); opacity: 0.92; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .campus-splash__inner { animation: none; }
+}
