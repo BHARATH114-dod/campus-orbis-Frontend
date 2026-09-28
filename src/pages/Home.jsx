@@ -75,9 +75,14 @@ export default function Home() {
               {colleges.map((c) => (
                 <div key={c.id} className="flex flex-col items-center gap-2 rounded-2xl border border-line bg-paper p-5 text-center shadow-sm">
                   {c.has_logo ? (
-                    <img src={collegeLogoUrl(c.id)} alt="" className="h-12 w-12 rounded object-contain" />
+                    <img
+                      src={collegeLogoUrl(c.id)}
+                      alt={`${c.name} logo`}
+                      className="h-14 w-14 rounded-xl object-contain border border-line bg-paper p-1 shadow-sm"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
                   ) : (
-                    <div className="grid h-12 w-12 place-items-center rounded-full bg-purple/10 text-sm font-bold text-purple">
+                    <div className="grid h-14 w-14 place-items-center rounded-xl bg-purple/10 text-base font-bold text-purple">
                       {c.name.slice(0, 2).toUpperCase()}
                     </div>
                   )}

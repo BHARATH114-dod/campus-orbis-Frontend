@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useToast } from '../../context/ToastContext';
 import { fetchMyCollege, fetchHods, fetchCollegeAnalytics } from '../../services/collegeAdminService';
+import { collegeLogoUrl } from '../../services/authService';
 import BarList from '../BarList';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -30,8 +31,24 @@ export default function CollegeAdminDashboard() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-ink">{college?.name || 'Your college'}</h1>
-      <p className="mb-6 text-sm text-ink-light">Welcome back, {user.name.split(' ')[0]}. Here's the college-wide picture.</p>
+      <div className="mb-6 flex items-center gap-3">
+        {college?.has_logo ? (
+          <img
+            src={collegeLogoUrl(college.id)}
+            alt={`${college.name} logo`}
+            className="h-12 w-12 rounded-xl object-contain border border-line bg-paper-card p-1 shadow-sm shrink-0"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : college?.name ? (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-base font-bold text-teal">
+            {college.name.slice(0, 2).toUpperCase()}
+          </div>
+        ) : null}
+        <div>
+          <h1 className="text-xl font-bold text-ink leading-tight">{college?.name || 'Your college'}</h1>
+          <p className="text-sm text-ink-light">Welcome back, {user.name.split(' ')[0]}. Here's the college-wide picture.</p>
+        </div>
+      </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Students" value={analytics?.totals.students ?? 0} />

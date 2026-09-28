@@ -164,10 +164,19 @@ export default function Login() {
                       onClick={() => chooseCollege(c)}
                       className="flex w-full items-center gap-3 rounded-lg border border-line px-3 py-2 text-left text-sm hover:bg-paper"
                     >
-                      {c.has_logo && (
-                        <img src={collegeLogoUrl(c.id)} alt="" className="h-7 w-7 rounded object-contain" />
+                      {c.has_logo ? (
+                        <img
+                          src={collegeLogoUrl(c.id)}
+                          alt=""
+                          className="h-8 w-8 rounded-md object-contain border border-line/40 bg-paper p-0.5 shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-purple/10 text-xs font-bold text-purple">
+                          {c.name.slice(0, 2).toUpperCase()}
+                        </span>
                       )}
-                      {c.name}
+                      <span className="font-medium text-ink">{c.name}</span>
                     </button>
                   ))}
                   {showSuperAdminSuggestion && (
@@ -195,15 +204,36 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setStage('college')}
-                className="mb-4 text-xs font-semibold text-ink-light hover:text-ink"
+                className="mb-4 text-xs font-semibold text-ink-light hover:text-ink flex items-center gap-1"
               >
                 ← Change college
               </button>
             )}
 
-            <h1 className="text-xl font-bold text-ink">
-              {isSuperAdmin ? 'Super Admin sign-in' : `Sign in to ${selectedCollege?.name}`}
-            </h1>
+            {isSuperAdmin ? (
+              <h1 className="text-xl font-bold text-ink">Super Admin sign-in</h1>
+            ) : (
+              <div className="mb-4 flex items-center gap-3 rounded-xl border border-line bg-paper-card p-3 shadow-sm">
+                {selectedCollege?.has_logo ? (
+                  <img
+                    src={collegeLogoUrl(selectedCollege.id)}
+                    alt={`${selectedCollege.name} logo`}
+                    className="h-12 w-12 rounded-lg object-contain border border-line bg-paper p-1 shrink-0"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-teal/10 text-base font-bold text-teal">
+                    {selectedCollege?.name?.slice(0, 2)?.toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-lg font-bold text-ink leading-tight">
+                    {selectedCollege?.name}
+                  </h1>
+                  <p className="text-xs text-ink-light">Sign in to your campus account</p>
+                </div>
+              </div>
+            )}
 
             {!isSuperAdmin && (
               <div className="mt-4 grid grid-cols-2 gap-2">

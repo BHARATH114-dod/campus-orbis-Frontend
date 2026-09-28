@@ -91,7 +91,12 @@ export default function SuperAdminDashboard() {
                   className="shrink-0 rounded-xl border border-line bg-paper p-1 transition-transform hover:scale-105"
                 >
                   {c.has_logo ? (
-                    <img src={collegeLogoUrl(c.id)} alt={`${c.name} logo`} className="h-12 w-12 rounded-lg object-cover" />
+                    <img
+                      src={collegeLogoUrl(c.id)}
+                      alt={`${c.name} logo`}
+                      className="h-12 w-12 rounded-lg object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
                   ) : (
                     <span className="grid h-12 w-12 place-items-center rounded-lg bg-teal/10 text-lg font-bold text-teal">
                       {c.name.charAt(0).toUpperCase()}

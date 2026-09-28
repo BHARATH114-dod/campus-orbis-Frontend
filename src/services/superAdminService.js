@@ -37,7 +37,8 @@ export function deleteCollege(id) {
 }
 
 /** GET /api/super/colleges/:id/logo — used directly as an <img src>, no auth header needed */
-export const collegeLogoUrl = (id) => `/api/super/colleges/${id}/logo`;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
+export const collegeLogoUrl = (id) => (id ? `${API_BASE}/super/colleges/${id}/logo` : '');
 
 /** GET /api/super/colleges/:id/admins → { admins: [{ id, name, username, created_at }] } */
 export function fetchCollegeAdmins(collegeId) {

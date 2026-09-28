@@ -59,7 +59,8 @@ export function fetchPublicStats() {
  * GET /api/super/colleges/:id/logo — no auth required despite the path
  * (confirmed public on the backend), used directly as an <img src>.
  */
-export const collegeLogoUrl = (id) => `/api/super/colleges/${id}/logo`;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
+export const collegeLogoUrl = (id) => (id ? `${API_BASE}/super/colleges/${id}/logo` : '');
 
 /**
  * POST /api/account/profile
