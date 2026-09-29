@@ -496,20 +496,34 @@ export default function TestAttempt({ test, initialSecondsLeft, onDone, monitorS
   // Tab & screen switch auto-submission: The moment the user switches tabs,
   // navigates away, or moves out of the test window, exit and auto-submit immediately.
   useEffect(() => {
+    let blurTimer = null;
     const handleSwitch = () => {
       if (document.hidden || document.visibilityState === 'hidden') {
+        clearTimeout(blurTimer);
         doSubmit('tab_switch');
       }
     };
     const handleWindowBlur = () => {
-      // Screen switch or window blur away from the exam
-      doSubmit('tab_switch');
+      // Screen switch or window blur away from the exam: verify after a short delay
+      // to avoid transient blurs (e.g. browser permission prompt or system dialogs)
+      clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        if (!document.hasFocus() || document.hidden) {
+          doSubmit('tab_switch');
+        }
+      }, 400);
+    };
+    const handleWindowFocus = () => {
+      clearTimeout(blurTimer);
     };
     document.addEventListener('visibilitychange', handleSwitch);
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
     return () => {
+      clearTimeout(blurTimer);
       document.removeEventListener('visibilitychange', handleSwitch);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, [doSubmit]);
 
