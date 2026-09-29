@@ -27,9 +27,9 @@ export function fetchCompetitionQuiz(quizId) {
  * questions: [{ text, options: [string,...2-6], correct_index, time_limit_seconds (5-60), max_points }]
  * Response: { quiz } — including quiz_code (creator-only view)
  */
-export function createCompetitionQuiz({ title, description, questions, saveAsTest }) {
+export function createCompetitionQuiz({ title, description, questions, saveAsTest, logo }) {
   return api
-    .post('/competition-quizzes', { title, description, questions, save_as_test: !!saveAsTest })
+    .post('/competition-quizzes', { title, description, questions, save_as_test: !!saveAsTest, logo })
     .then((res) => res.data);
 }
 
@@ -57,10 +57,20 @@ export function saveCompetitionQuizAsTest(quizId) {
  * GET /api/saved-club-quizzes — faculty/hod/college_admin only. Reusable
  * quiz templates saved via "Save as Test". Response: { saved_tests: [{
  *   id, title, description, question_count, created_by_name, created_at,
- *   times_conducted }] }
+ *   times_conducted, can_manage, logo }] }
  */
 export function fetchSavedClubQuizzes() {
   return api.get('/saved-club-quizzes').then((res) => res.data.saved_tests);
+}
+
+/** GET /api/saved-club-quizzes/:id → { saved_test: { ...with questions including correct_index } } */
+export function fetchSavedClubQuiz(id) {
+  return api.get(`/saved-club-quizzes/${id}`).then((res) => res.data.saved_test);
+}
+
+/** PUT /api/saved-club-quizzes/:id → { saved_test } */
+export function updateSavedClubQuiz(id, { title, description, questions, logo }) {
+  return api.put(`/saved-club-quizzes/${id}`, { title, description, questions, logo }).then((res) => res.data.saved_test);
 }
 
 /** DELETE /api/saved-club-quizzes/:id → { ok: true } */
