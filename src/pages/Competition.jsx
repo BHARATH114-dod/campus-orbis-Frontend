@@ -7,6 +7,8 @@ import {
   createCompetitionQuiz,
   deleteCompetitionQuiz,
   joinCompetitionQuiz,
+  updateQuizParticipantProfile,
+  kickQuizParticipant,
   startCompetitionQuiz,
   fetchCompetitionQuizSession,
   submitCompetitionQuizAnswer,
@@ -241,12 +243,6 @@ export default function Competition() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [editingSavedTest, setEditingSavedTest] = useState(null);
   const [joinCode, setJoinCode] = useState('');
-  // NEW (spec item 3): joining is now two steps — the code, then (once it's
-  // been entered) the display name the participant wants shown for this
-  // quiz. Both are sent together to the one join endpoint, but the UI asks
-  // for the name only after the code step, per spec.
-  const [joinStep, setJoinStep] = useState('code');
-  const [joinDisplayName, setJoinDisplayName] = useState('');
   const [joining, setJoining] = useState(false);
   const [liveQuizId, setLiveQuizId] = useState(null);
   const [savedTestsOpen, setSavedTestsOpen] = useState(false);
@@ -268,25 +264,14 @@ export default function Competition() {
     if (location.state?.autoJoinQuizId) setLiveQuizId(location.state.autoJoinQuizId);
   }, [location.state]);
 
-  const handleContinueToName = (e) => {
-    e.preventDefault();
-    if (!joinCode.trim()) return;
-    setJoinStep('name');
-  };
-
   const handleJoinByCode = async (e) => {
     e.preventDefault();
-    if (!joinDisplayName.trim()) {
-      showToast('Enter the name you want displayed for this quiz.', 'error');
-      return;
-    }
+    if (!joinCode.trim()) return;
     setJoining(true);
     try {
-      const res = await joinCompetitionQuiz(joinCode.trim(), joinDisplayName.trim());
-      showToast(`Joined "${res.title}" as ${res.display_name} on behalf of ${res.club_name}.`, 'success');
+      const res = await joinCompetitionQuiz(joinCode.trim());
+      showToast(`Joined "${res.title}" successfully!`, 'success');
       setJoinCode('');
-      setJoinDisplayName('');
-      setJoinStep('code');
       setLiveQuizId(res.quiz_id);
     } catch (err) {
       showToast(err.message || 'That quiz code did not work.', 'error');
@@ -344,50 +329,23 @@ export default function Competition() {
         </div>
       </div>
 
-      {/* Spec item 3: Step 1 — enter the quiz code. Step 2 (shown only once a
-          code has been given) — enter the display name for this quiz. */}
-      {joinStep === 'code' ? (
-        <form onSubmit={handleContinueToName} className="mb-6 flex gap-2 rounded-2xl border border-dashed border-gold bg-gold/5 p-4">
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="Have a quiz code? Enter it here…"
-            className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm uppercase tracking-wider"
-          />
-          <button
-            type="submit"
-            disabled={!joinCode.trim()}
-            className="rounded-lg bg-gold px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
-          >
-            Continue
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleJoinByCode} className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-dashed border-gold bg-gold/5 p-4">
-          <input
-            value={joinDisplayName}
-            onChange={(e) => setJoinDisplayName(e.target.value)}
-            placeholder="Enter the name you want displayed for this quiz…"
-            maxLength={60}
-            autoFocus
-            className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            onClick={() => { setJoinStep('code'); setJoinDisplayName(''); }}
-            className="rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-paper"
-          >
-            Back
-          </button>
-          <button
-            type="submit"
-            disabled={joining || !joinDisplayName.trim()}
-            className="rounded-lg bg-gold px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
-          >
-            {joining ? 'Joining…' : 'Join quiz'}
-          </button>
-        </form>
-      )}
+      {/* Single-step Quiz Code Join */}
+      <form onSubmit={handleJoinByCode} className="mb-6 flex gap-2 rounded-2xl border border-dashed border-teal bg-teal/5 p-4">
+        <input
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+          placeholder="ENTER QUIZ CODE (e.g. QZ789)…"
+          maxLength={20}
+          className="flex-1 rounded-xl border border-line bg-paper px-4 py-2.5 font-mono text-sm uppercase tracking-wider text-ink focus:border-teal focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={joining || !joinCode.trim()}
+          className="rounded-xl bg-hero-primary px-6 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-40 transition"
+        >
+          {joining ? 'Joining…' : 'Join Quiz'}
+        </button>
+      </form>
 
       {loading ? (
         <LoadingSpinner label="Loading quizzes…" />
@@ -1121,6 +1079,8 @@ function LiveQuizView({ quizId, onClose }) {
   const [participants, setParticipants] = useState([]);
   const [answering, setAnswering] = useState(false);
   const [lastAnswer, setLastAnswer] = useState(null);
+  const [optimisticSelection, setOptimisticSelection] = useState(null);
+  const [myLogoPickerOpen, setMyLogoPickerOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [countdownMs, setCountdownMs] = useState(0);
   // Single self-scheduling timeout handle (not setInterval — see the
@@ -1136,44 +1096,13 @@ function LiveQuizView({ quizId, onClose }) {
   // animate the transition. Persists across the whole quiz session.
   const leaderboardRanksRef = useRef({});
 
-  // Root-cause fix for the repeated "Request failed with status code 504"
-  // toasts on this screen. This used to be a plain `setInterval(poll,
-  // 1200)` that fired on a fixed clock no matter what: if one poll was
-  // still in flight (e.g. the server was momentarily slow) the *next*
-  // tick fired anyway, piling up overlapping requests for the same quiz
-  // from the same client; with every joined participant's browser doing
-  // that at once during the "Waiting to start" lobby, plus a SECOND,
-  // equally uncontrolled request (fetchCompetitionQuizParticipants) fired
-  // on every single tick, it was a request storm that made the backend
-  // slower, which made the overlap worse, which is exactly the kind of
-  // feedback loop that ends in a wall of 504s and a matching wall of red
-  // toasts (one per failed tick, with no de-dup).
-  //
-  // Fixed by replacing the fixed interval with a single self-scheduling
-  // timeout chain:
-  //  - Only ONE request for this quiz is ever in flight at a time — the
-  //    next poll is scheduled only after the current one finishes (success
-  //    OR failure), never on a fixed clock regardless of completion.
-  //  - Only ONE timer ever exists for this quiz — pollTimeoutRef always
-  //    holds the single pending handle, cleared before every reschedule
-  //    and on unmount/quizId change, so effect re-runs (including React
-  //    StrictMode's dev double-invoke) can never leave a second chain
-  //    running in the background.
-  //  - The extra participants call (only relevant in the lobby) now rides
-  //    the same cadence instead of firing every tick independently, and
-  //    is itself guarded so it can't stack either.
-  //  - On failure, the next attempt backs off (1.2s -> up to 6s) instead
-  //    of hammering an already-struggling backend, and resets to normal
-  //    speed the moment a poll succeeds again.
-  //  - Exactly one error toast is shown per failure streak (not one per
-  //    failed tick) — ToastContext also de-dupes identical messages as a
-  //    second line of defense.
   useEffect(() => {
     leaderboardRanksRef.current = {};
     lastQuestionIdRef.current = null;
     if (!quizId) {
       setSession(null);
       setLastAnswer(null);
+      setOptimisticSelection(null);
       setParticipants([]);
       return;
     }
@@ -1198,22 +1127,16 @@ function LiveQuizView({ quizId, onClose }) {
           setSession(s);
           setCountdownMs(s.status === 'live' ? s.time_remaining_ms : s.status === 'between' ? s.between_remaining_ms : 0);
           if (s.status === 'live' && s.question) {
-            // Only clear the highlight when the question actually changes —
-            // it must stay put for the entire duration of the same question,
-            // right up until the timer ends and it turns 'between'.
             if (s.question.id !== lastQuestionIdRef.current) {
               lastQuestionIdRef.current = s.question.id;
               setLastAnswer(null);
+              setOptimisticSelection(null);
             }
           } else if (s.status !== 'between') {
-            // Lobby or finished — no question is showing, so no stale
-            // selection should carry forward.
             lastQuestionIdRef.current = null;
             setLastAnswer(null);
+            setOptimisticSelection(null);
           }
-          // Throttled to every 3rd tick (~3.6s) instead of every poll —
-          // the participant list doesn't need to be as fresh as the
-          // timer/status, and this halves lobby request volume.
           if (s.status === 'lobby' && participantTick % 3 === 0) {
             fetchCompetitionQuizParticipants(quizId).then((p) => !cancelled && setParticipants(p)).catch(() => {});
           }
@@ -1222,10 +1145,12 @@ function LiveQuizView({ quizId, onClose }) {
         })
         .catch((err) => {
           if (cancelled) return;
+          if (err.status === 403) {
+            showToast(err.message || 'You have been removed from this quiz by the host.', 'error');
+            onClose();
+            return;
+          }
           consecutiveFailures += 1;
-          // Only the FIRST failure of a streak gets a toast — repeated
-          // failures on the following ticks stay silent (still retrying
-          // in the background) instead of flooding the screen.
           if (consecutiveFailures === 1) {
             showToast(err.message || 'Lost connection to the quiz. Reconnecting…', 'error');
           }
@@ -1264,16 +1189,46 @@ function LiveQuizView({ quizId, onClose }) {
   if (!quizId) return null;
 
   const handleAnswer = async (optionIndex) => {
-    if (answering || !session?.question) return;
+    if (answering || session?.answered || optimisticSelection !== null || !session?.question) return;
+    setOptimisticSelection(optionIndex); // 0ms Instant visual selection!
     setAnswering(true);
     try {
       const res = await submitCompetitionQuizAnswer(quizId, optionIndex);
       setLastAnswer({ optionIndex, ...res });
       setSession((s) => (s ? { ...s, answered: true, my_score: res.total_score } : s));
     } catch (err) {
+      setOptimisticSelection(null);
       showToast(err.message || 'Could not submit your answer.', 'error');
     } finally {
       setAnswering(false);
+    }
+  };
+
+  const handleUpdateProfile = async (updates) => {
+    try {
+      await updateQuizParticipantProfile(quizId, updates);
+      setSession((s) => (s ? {
+        ...s,
+        my_club_name: updates.club_name !== undefined ? updates.club_name : s.my_club_name,
+        my_display_name: updates.display_name !== undefined ? updates.display_name : s.my_display_name,
+        my_logo: updates.logo !== undefined ? updates.logo : s.my_logo
+      } : s));
+      showToast('Team profile updated!', 'success');
+      // Refresh participants
+      fetchCompetitionQuizParticipants(quizId).then(setParticipants).catch(() => {});
+    } catch (err) {
+      showToast(err.message || 'Could not update profile.', 'error');
+    }
+  };
+
+  const handleKick = async (username, name) => {
+    if (!window.confirm(`Kick ${name} from this quiz lobby?`)) return;
+    try {
+      await kickQuizParticipant(quizId, username);
+      showToast(`Removed ${name} from the quiz.`, 'info');
+      setParticipants((prev) => prev.filter((p) => p.username !== username));
+    } catch (err) {
+      showToast(err.message || 'Could not kick participant.', 'error');
     }
   };
 
@@ -1407,16 +1362,61 @@ function LiveQuizView({ quizId, onClose }) {
               </div>
             )}
 
+            {!session.is_host && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center space-y-3">
+                <div className="flex items-center justify-center gap-3">
+                  {session.my_logo && <TeamLogoBadge logo={session.my_logo} size="md" />}
+                  <span className="text-base font-black text-white">{session.my_club_name || 'My Team'}</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newName = window.prompt('Enter new Team / Display Name:', session.my_club_name || '');
+                      if (newName && newName.trim()) {
+                        handleUpdateProfile({ club_name: newName.trim() });
+                      }
+                    }}
+                    className="rounded-full bg-white/10 hover:bg-white/20 px-3.5 py-1.5 text-xs font-bold text-white transition border border-white/10"
+                  >
+                    ✏️ Edit Team Name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMyLogoPickerOpen(true)}
+                    className="rounded-full bg-teal/20 hover:bg-teal/30 text-teal border border-teal/40 px-3.5 py-1.5 text-xs font-bold transition"
+                  >
+                    🎨 Choose Team Logo
+                  </button>
+                </div>
+              </div>
+            )}
+
             {participants.length > 0 && (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
                 <p className="text-xs font-extrabold uppercase tracking-wider text-white/60 mb-2">
-                  Clubs Joined ({participants.length})
+                  Participants & Teams Joined ({participants.length})
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {participants.map((p, idx) => (
-                    <div key={idx} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs border border-white/5">
-                      <span className="font-bold text-white truncate">{p.club_name} — {p.display_name || p.name}</span>
-                      {session.is_host && <span className="text-[10px] text-white/50">{p.roll_number || ''}</span>}
+                    <div key={p.id || idx} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs border border-white/5 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {p.logo && <TeamLogoBadge logo={p.logo} size="sm" />}
+                        <span className="font-bold text-white truncate">{p.club_name} — {p.display_name || p.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {session.is_host && <span className="text-[10px] text-white/50">{p.roll_number || ''}</span>}
+                        {session.is_host && (
+                          <button
+                            type="button"
+                            onClick={() => handleKick(p.username, p.display_name || p.name)}
+                            className="rounded px-2 py-0.5 text-[10px] font-bold text-crimson bg-crimson/10 hover:bg-crimson/20 border border-crimson/30 transition"
+                            title="Kick participant"
+                          >
+                            🚫 Kick
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1453,8 +1453,8 @@ function LiveQuizView({ quizId, onClose }) {
             {/* Options Arena: 2x2 Massive Responsive Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5 w-full my-auto">
               {session.question.options.map((opt, i) => {
-                const isSelected = lastAnswer?.optionIndex === i;
-                const isLocked = session.answered || !!lastAnswer;
+                const isSelected = lastAnswer?.optionIndex === i || optimisticSelection === i;
+                const isLocked = session.answered || !!lastAnswer || optimisticSelection !== null;
                 const theme = OPTION_THEMES[i % OPTION_THEMES.length];
 
                 if (session.is_host) {
@@ -1483,7 +1483,7 @@ function LiveQuizView({ quizId, onClose }) {
                   <button
                     key={i}
                     type="button"
-                    disabled={session.answered || answering || seconds <= 0}
+                    disabled={session.answered || answering || seconds <= 0 || isLocked}
                     onClick={() => {
                       if (window.navigator?.vibrate) window.navigator.vibrate(40);
                       handleAnswer(i);
@@ -1678,6 +1678,13 @@ function LiveQuizView({ quizId, onClose }) {
           </div>
         )}
       </div>
+
+      <TeamLogoPickerModal
+        open={myLogoPickerOpen}
+        onClose={() => setMyLogoPickerOpen(false)}
+        selectedLogo={session?.my_logo}
+        onSelect={(logo) => handleUpdateProfile({ logo })}
+      />
     </div>
   );
 }

@@ -459,19 +459,19 @@ export default function TestAttempt({ test, initialSecondsLeft, onDone, monitorS
       clearAutosave();
       onDone(result);
     } catch (err) {
+      if (err.status === 409 || err.message?.includes('already submitted')) {
+        clearAutosave();
+        onDone(err.data?.submission || { test_id: test.id, submitted: true });
+        return;
+      }
+      if (reason === 'tab_switch' || reason === 'screen_switch') {
+        clearAutosave();
+        onDone({ test_id: test.id, submitted: true, reason });
+        return;
+      }
       submittedRef.current = false;
       setSubmitting(false);
-      // A tab-switch attempt can silently fail (e.g. the student's network
-      // was already dropping when they switched) — retry once in the
-      // background rather than surfacing a toast the student, who has
-      // already navigated away, won't see. A manual submit still gets the
-      // normal toast so the student (who's still looking at the screen)
-      // knows to try again.
-      if (reason === 'tab_switch') {
-        setTimeout(() => { if (!submittedRef.current) doSubmit('tab_switch'); }, 3000);
-      } else {
-        showToast(err.message || 'Could not submit your test.', 'error');
-      }
+      showToast(err.message || 'Could not submit your test.', 'error');
     }
   }, [test, onDone, showToast, clearAutosave]);
 
@@ -493,28 +493,24 @@ export default function TestAttempt({ test, initialSecondsLeft, onDone, monitorS
     };
   }, []);
 
-  // Tab-switch auto-submission — the ONLY automatic submission trigger in
-  // this component (see the block comment at the top of this file). The
-  // Page Visibility API's "visibilitychange" event + document.hidden is
-  // the one reliable, spec-defined signal for "the user actually
-  // navigated away from this tab" — it does NOT fire for mouse movement,
-  // clicks, scrolling, typing (including Tab inside the code editor,
-  // which CodeEditor intercepts for indentation and never lets bubble up
-  // to the browser as a real tab change), fullscreen toggling, or window
-  // resizing, and it's a materially stronger signal than "blur" (which
-  // also fires for transient focus changes like opening dev tools or
-  // clicking the address bar — exactly the false positives we must NOT
-  // auto-submit on). The moment the test tab is hidden, this submits
-  // immediately with the student's current answers/code exactly as they
-  // stand — silently, with nothing shown to the student before the
-  // switch — and the resulting submission is stamped 'tab_switch' so
-  // faculty are notified and it shows as "Submitted — Tab Switch".
+  // Tab & screen switch auto-submission: The moment the user switches tabs,
+  // navigates away, or moves out of the test window, exit and auto-submit immediately.
   useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.hidden) doSubmit('tab_switch');
+    const handleSwitch = () => {
+      if (document.hidden || document.visibilityState === 'hidden') {
+        doSubmit('tab_switch');
+      }
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+    const handleWindowBlur = () => {
+      // Screen switch or window blur away from the exam
+      doSubmit('tab_switch');
+    };
+    document.addEventListener('visibilitychange', handleSwitch);
+    window.addEventListener('blur', handleWindowBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleSwitch);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
   }, [doSubmit]);
 
   // Countdown timer — IMPORTANT: NO AUTOMATIC EXAM SUBMISSION. Reaching

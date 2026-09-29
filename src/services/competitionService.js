@@ -39,13 +39,21 @@ export function deleteCompetitionQuiz(quizId) {
 }
 
 /**
- * POST /api/competition-quizzes/join — enter a quiz code. You must already
- * be a member of a club. If a teammate already joined on your club's
- * behalf, this fails with a 409 whose body names them.
- * Response: { ok, quiz_id, title, club_name }
+ * POST /api/competition-quizzes/join — enter a quiz code.
+ * Response: { ok, quiz_id, title, club_name, display_name }
  */
 export function joinCompetitionQuiz(code, displayName) {
-  return api.post('/competition-quizzes/join', { code, display_name: displayName }).then((res) => res.data);
+  return api.post('/competition-quizzes/join', { code, display_name: displayName || undefined }).then((res) => res.data);
+}
+
+/** PATCH /api/competition-quizzes/:id/my-profile — edit team name, display name, and logo in lobby without exiting */
+export function updateQuizParticipantProfile(quizId, { club_name, display_name, logo }) {
+  return api.patch(`/competition-quizzes/${quizId}/my-profile`, { club_name, display_name, logo }).then((res) => res.data);
+}
+
+/** POST /api/competition-quizzes/:id/kick — host only, kicks participant from lobby */
+export function kickQuizParticipant(quizId, username) {
+  return api.post(`/competition-quizzes/${quizId}/kick`, { username }).then((res) => res.data);
 }
 
 /** POST /api/competition-quizzes/:id/save-as-test — host only, saves an already-created quiz as a reusable template. Response: { saved_test } */
