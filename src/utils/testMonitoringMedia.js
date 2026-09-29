@@ -75,18 +75,34 @@ export async function requestMonitoringStream() {
   if (!isMediaApiSupported()) {
     return { ok: false, camera: 'unavailable', audio: 'unavailable', reason: MEDIA_ERROR.UNSUPPORTED };
   }
+  const videoConstraints = {
+    width: { ideal: 320, max: 640 },
+    height: { ideal: 240, max: 480 },
+    frameRate: { ideal: 10, max: 15 },
+  };
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
     if (stream) return { ok: true, stream, camera: 'granted', audio: 'granted' };
-  } catch { /* fall through to independent requests below */ }
+  } catch {
+    try {
+      const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (fallbackStream) return { ok: true, stream: fallbackStream, camera: 'granted', audio: 'granted' };
+    } catch { /* fall through to independent requests below */ }
+  }
 
   const [videoResult, audioResult] = await Promise.all([
     (async () => {
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: true });
+        const s = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
         return { ok: true, stream: s };
-      } catch (err) {
-        return { ok: false, reason: classifyKnownError(err) };
+      } catch {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ video: true });
+          return { ok: true, stream: s };
+        } catch (err) {
+          return { ok: false, reason: classifyKnownError(err) };
+        }
       }
     })(),
     (async () => {

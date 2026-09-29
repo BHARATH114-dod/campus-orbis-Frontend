@@ -1,62 +1,66 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PublicLayout from '../layouts/PublicLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
 import ProtectedRoute from './ProtectedRoute';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 import Home from '../pages/Home';
 import Login from '../pages/Login';
 import NotFound from '../pages/NotFound';
-import StudentDashboard from '../pages/StudentDashboard';
-import FacultyDashboard from '../pages/FacultyDashboard';
-import FacultyStudents from '../pages/FacultyStudents';
-import FacultyStudentFees from '../pages/FacultyStudentFees';
-import FacultyTimetable from '../pages/FacultyTimetable';
-import StudentTimetable from '../pages/StudentTimetable';
-import AdminDashboard from '../pages/AdminDashboard';
-import AODashboard from '../pages/AODashboard';
-import Events from '../pages/Events';
-import Clubs from '../pages/Clubs';
-import Competition from '../pages/Competition';
-import Notes from '../pages/Notes';
-import Attendance from '../pages/Attendance';
-import Placements from '../pages/Placements';
-import People from '../pages/People';
-import Leaderboard from '../pages/Leaderboard';
-import Tests from '../pages/Tests';
-import TestMonitoring from '../pages/TestMonitoring';
-import Messages from '../pages/Messages';
-import CollegeAdminSubjects from '../pages/CollegeAdminSubjects';
-import Board from '../pages/Board';
-import Courses from '../pages/Courses';
-import CourseDashboard from '../pages/CourseDashboard';
-import CourseLesson from '../pages/CourseLesson';
-import CourseLessonTest from '../pages/CourseLessonTest';
-import CourseFacultyStudents from '../pages/CourseFacultyStudents';
-import Practice from '../pages/Practice';
-import SuperCourseAccess from '../pages/SuperCourseAccess';
-import SuperPaymentSettings from '../pages/SuperPaymentSettings';
-import SuperPaymentVerification from '../pages/SuperPaymentVerification';
-import CollegeRequestCourse from '../pages/CollegeRequestCourse';
-import Profile from '../pages/Profile';
-import Notifications from '../pages/Notifications';
-import Settings from '../pages/Settings';
 
-import TermsAndConditions from '../pages/legal/TermsAndConditions';
-import PrivacyPolicy from '../pages/legal/PrivacyPolicy';
-import CookiePolicy from '../pages/legal/CookiePolicy';
-import CopyrightPolicy from '../pages/legal/CopyrightPolicy';
-import Disclaimer from '../pages/legal/Disclaimer';
-import ContactSupport from '../pages/legal/ContactSupport';
-import CommunityGuidelines from '../pages/legal/CommunityGuidelines';
-import AccessibilityStatement from '../pages/legal/AccessibilityStatement';
-import SecurityInformation from '../pages/legal/SecurityInformation';
+const StudentDashboard = lazy(() => import('../pages/StudentDashboard'));
+const FacultyDashboard = lazy(() => import('../pages/FacultyDashboard'));
+const FacultyStudents = lazy(() => import('../pages/FacultyStudents'));
+const FacultyStudentFees = lazy(() => import('../pages/FacultyStudentFees'));
+const FacultyTimetable = lazy(() => import('../pages/FacultyTimetable'));
+const StudentTimetable = lazy(() => import('../pages/StudentTimetable'));
+const AdminDashboard = lazy(() => import('../pages/AdminDashboard'));
+const AODashboard = lazy(() => import('../pages/AODashboard'));
+const Events = lazy(() => import('../pages/Events'));
+const Clubs = lazy(() => import('../pages/Clubs'));
+const Competition = lazy(() => import('../pages/Competition'));
+const Notes = lazy(() => import('../pages/Notes'));
+const Attendance = lazy(() => import('../pages/Attendance'));
+const Placements = lazy(() => import('../pages/Placements'));
+const People = lazy(() => import('../pages/People'));
+const Leaderboard = lazy(() => import('../pages/Leaderboard'));
+const Tests = lazy(() => import('../pages/Tests'));
+const TestMonitoring = lazy(() => import('../pages/TestMonitoring'));
+const Messages = lazy(() => import('../pages/Messages'));
+const CollegeAdminSubjects = lazy(() => import('../pages/CollegeAdminSubjects'));
+const Board = lazy(() => import('../pages/Board'));
+const Courses = lazy(() => import('../pages/Courses'));
+const CourseDashboard = lazy(() => import('../pages/CourseDashboard'));
+const CourseLesson = lazy(() => import('../pages/CourseLesson'));
+const CourseLessonTest = lazy(() => import('../pages/CourseLessonTest'));
+const CourseFacultyStudents = lazy(() => import('../pages/CourseFacultyStudents'));
+const Practice = lazy(() => import('../pages/Practice'));
+const SuperCourseAccess = lazy(() => import('../pages/SuperCourseAccess'));
+const SuperPaymentSettings = lazy(() => import('../pages/SuperPaymentSettings'));
+const SuperPaymentVerification = lazy(() => import('../pages/SuperPaymentVerification'));
+const CollegeRequestCourse = lazy(() => import('../pages/CollegeRequestCourse'));
+const Profile = lazy(() => import('../pages/Profile'));
+const Notifications = lazy(() => import('../pages/Notifications'));
+const Settings = lazy(() => import('../pages/Settings'));
+
+const TermsAndConditions = lazy(() => import('../pages/legal/TermsAndConditions'));
+const PrivacyPolicy = lazy(() => import('../pages/legal/PrivacyPolicy'));
+const CookiePolicy = lazy(() => import('../pages/legal/CookiePolicy'));
+const CopyrightPolicy = lazy(() => import('../pages/legal/CopyrightPolicy'));
+const Disclaimer = lazy(() => import('../pages/legal/Disclaimer'));
+const ContactSupport = lazy(() => import('../pages/legal/ContactSupport'));
+const CommunityGuidelines = lazy(() => import('../pages/legal/CommunityGuidelines'));
+const AccessibilityStatement = lazy(() => import('../pages/legal/AccessibilityStatement'));
+const SecurityInformation = lazy(() => import('../pages/legal/SecurityInformation'));
 
 export default function AppRoutes() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route element={<PublicLayout />}>
-        <Route path="/" element={<Home />} />
+    <Suspense fallback={<LoadingSpinner fullPage label="Loading…" />}>
+      <Routes>
+        {/* Public */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Home />} />
 
         {/* Legal & Policies — public so they're readable without logging in,
             and linked from the footer on every page that uses it. */}
@@ -358,5 +362,6 @@ export default function AppRoutes() {
           so it reads as a standalone error state rather than a normal page. */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+  </Suspense>
   );
 }

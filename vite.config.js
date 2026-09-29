@@ -30,5 +30,24 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('face-api.js')) {
+            return 'vendor-faceapi';
+          }
+          if (id.includes('@codemirror') || id.includes('react-codemirror')) {
+            return 'vendor-codemirror';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/axios')) {
+            return 'vendor-axios';
+          }
+        },
+      },
+    },
   },
 });

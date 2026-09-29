@@ -214,12 +214,16 @@ function useTestMonitoringRecorder(testId, stream) {
       // cleanup already ran) — bail quietly instead of letting
       // recorder.start() throw on a dead stream.
       if (!stream.getTracks().some((t) => t.readyState === 'live')) { setRecording(false); return; }
-      const chunks = [];
       try {
-        recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        const opts = mimeType ? { mimeType, videoBitsPerSecond: 100000 } : { videoBitsPerSecond: 100000 };
+        recorder = new MediaRecorder(stream, opts);
       } catch {
-        setRecording(false);
-        return;
+        try {
+          recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        } catch {
+          setRecording(false);
+          return;
+        }
       }
       recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {

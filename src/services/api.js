@@ -17,13 +17,8 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
-  // Root-cause fix (repeated 504 toasts on Live Quiz): previously
-  // unset, so a stuck request would hang in the browser indefinitely —
-  // meaning a polling loop's "in-flight" request could never time out on
-  // its own, and kept the loop waiting instead of freeing it up to back
-  // off and retry sanely. 15s comfortably covers a slow-but-alive backend
-  // while still failing fast enough for a poll loop to recover cleanly.
-  timeout: 15000,
+  // Increased to 30s to comfortably tolerate spotty mobile data, 2G/3G, and cold starts
+  timeout: 30000,
 });
 
 // Attach Bearer token from localStorage for reliable cross-site authentication (mobile Safari/Chrome)
@@ -33,25 +28,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Normalize error handling: every failed call rejects with a plain object
-// { status, message } so components never need to touch Axios's response shape.
+// Normalize error handling & auto-retry transient network glitches for safe GET requests
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config;
     const status = error.response?.status;
-    // Root-cause fix: surface a clear, human message for a 504/503/timeout
-    // instead of a raw axios/network string — callers (e.g. the Live Quiz
-    // poll loop) key off `isTransient` to decide whether it's safe/sane to
-    // quietly retry on the next tick rather than treat it as a hard failure.
     const isTransient = status === 504 || status === 503 || status === 502 || error.code === 'ECONNABORTED' || (!error.response && error.message === 'Network Error');
+
+    // Safe, automatic single retry for idempotent GET requests on transient network drops
+    if (config && config.method === 'get' && !config.__isRetry && isTransient) {
+      config.__isRetry = true;
+      await new Promise((res) => setTimeout(res, 1000));
+      return api(config);
+    }
+
     const message = error.response?.data?.error
-      || (isTransient ? 'The server is taking a moment to respond.' : null)
+      || (isTransient ? 'The connection is taking a moment to respond.' : null)
       || error.message
       || 'Something went wrong.';
     if (status === 401) {
-      // Session expired or was never valid — let AuthContext react to this
-      // via a custom event rather than importing it here (would create a
-      // circular import between api.js and AuthContext.jsx).
       window.dispatchEvent(new CustomEvent('campusync:unauthorized'));
     }
     return Promise.reject({ status, message, isTransient, data: error.response?.data });
