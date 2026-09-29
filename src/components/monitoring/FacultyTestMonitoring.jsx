@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { fetchMyTests, fetchDepartmentTests } from '../../services/testService';
-import { fetchTestMonitoring, fetchHodTestMonitoring } from '../../services/testMonitoringService';
+import { fetchTestMonitoring, fetchHodTestMonitoring, monitoringStreamUrl, hodMonitoringStreamUrl } from '../../services/testMonitoringService';
 import { openMonitoringSocket, sendMonitoringSignal, RTC_ICE_SERVERS } from '../../services/monitoringSocket';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
@@ -439,6 +439,7 @@ export default function FacultyTestMonitoring({ role = 'faculty' }) {
         students={activeStudents}
         socket={socket}
         testId={selectedTestId}
+        isHod={isHod}
         onClose={() => setViewAllOpen(false)}
         onOpenStudent={openFromGrid}
       />
@@ -447,6 +448,7 @@ export default function FacultyTestMonitoring({ role = 'faculty' }) {
         student={liveStudentFresh}
         testId={selectedTestId}
         socket={socket}
+        isHod={isHod}
         cameFromViewAll={cameFromViewAll}
         onClose={closeLive}
         onBackToViewAll={backToViewAll}
@@ -556,13 +558,20 @@ function LiveBadge() {
 // connects while actually scrolled into view AND the roster reports the
 // student's camera as live; otherwise it shows the same kind of precise
 // status explanation View Live shows, never a fake or frozen frame.
-function LiveTile({ student, socket, testId, onOpen }) {
+function LiveTile({ student, socket, testId, isHod, onOpen }) {
   const containerRef = useRef(null);
   const inView = useInViewport(containerRef);
   const enabled = inView && !!student.camera_active;
   const { videoRef, state } = useStudentLiveView({ socket, testId, username: student.username, enabled });
 
   const connected = state === 'connected';
+  const streamUrl = useMemo(() => {
+    if (!student?.username || !testId) return '';
+    return isHod ? hodMonitoringStreamUrl(testId, student.username) : monitoringStreamUrl(testId, student.username);
+  }, [isHod, testId, student?.username]);
+  const [streamError, setStreamError] = useState(false);
+  const showFallback = !connected && student.recording_active && !streamError && inView;
+
   const overlayMessage = !student.camera_active
     ? (CAMERA_STATUS_META[student.camera_status] || CAMERA_STATUS_META.unavailable).label
     : !inView
@@ -586,10 +595,33 @@ function LiveTile({ student, socket, testId, onOpen }) {
           disablePictureInPicture
           controlsList="nodownload noremoteplayback nofullscreen"
           onContextMenu={(e) => e.preventDefault()}
-          className="h-full w-full object-cover"
+          className={`h-full w-full object-cover ${connected ? 'block' : 'hidden'}`}
         />
+        {showFallback && (
+          <video
+            key={streamUrl}
+            src={streamUrl}
+            autoPlay
+            playsInline
+            muted
+            disablePictureInPicture
+            controlsList="nodownload noremoteplayback nofullscreen"
+            onContextMenu={(e) => e.preventDefault()}
+            onError={() => setStreamError(true)}
+            onEnded={(e) => {
+              e.target.src = `${streamUrl}&_t=${Date.now()}`;
+              e.target.play().catch(() => {});
+            }}
+            className="h-full w-full object-cover"
+          />
+        )}
         {connected && <LiveBadge />}
-        {!connected && (
+        {!connected && showFallback && (
+          <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Stream
+          </span>
+        )}
+        {!connected && !showFallback && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 px-3 text-center text-[11px] font-medium text-white">
             {overlayMessage}
           </div>
@@ -613,7 +645,7 @@ function LiveTile({ student, socket, testId, onOpen }) {
 // in a responsive grid). A full-screen overlay rather than the shared
 // Modal component, since Modal is capped at a small fixed width — a
 // grid of live video tiles needs the whole viewport.
-function ViewAllScreen({ open, students, socket, testId, onClose, onOpenStudent }) {
+function ViewAllScreen({ open, students, socket, testId, isHod, onClose, onOpenStudent }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
@@ -652,7 +684,7 @@ function ViewAllScreen({ open, students, socket, testId, onClose, onOpenStudent 
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {students.map((s) => (
-              <LiveTile key={s.username} student={s} socket={socket} testId={testId} onOpen={onOpenStudent} />
+              <LiveTile key={s.username} student={s} socket={socket} testId={testId} isHod={isHod} onOpen={onOpenStudent} />
             ))}
           </div>
         )}
@@ -675,22 +707,19 @@ function InfoChip({ label, value, tone }) {
 // browser, shared with View All (see useStudentLiveView above). The
 // player is VIEW ONLY: there's no download control, no picture-in-
 // picture, and the context menu is disabled.
-function ViewLiveModal({ student, testId, socket, cameFromViewAll, onClose, onBackToViewAll }) {
+function ViewLiveModal({ student, testId, socket, isHod, cameFromViewAll, onClose, onBackToViewAll }) {
   const enabled = !!student && !!testId;
   const { videoRef, state, retry } = useStudentLiveView({ socket, testId, username: student?.username, enabled });
-  // BUG FIX: this <video> was permanently `muted` with no way to turn
-  // sound on, so faculty could never actually hear a student here even
-  // though the WebRTC connection carries a live audio track fine. Grid
-  // tiles (LiveTile, elsewhere in this file) stay muted-only on purpose —
-  // you don't want N students' audio playing at once in a grid — but this
-  // is the single detailed view faculty opens specifically to watch (and
-  // now listen to) one student, so it gets an explicit unmute control.
-  // Starts muted (autoplay policies require that); faculty's click to
-  // unmute is itself a user gesture, so the browser allows it.
   const [unmuted, setUnmuted] = useState(false);
+  const streamUrl = useMemo(() => {
+    if (!student?.username || !testId) return '';
+    return isHod ? hodMonitoringStreamUrl(testId, student.username) : monitoringStreamUrl(testId, student.username);
+  }, [isHod, testId, student?.username]);
+  const [streamError, setStreamError] = useState(false);
 
   if (!student || !testId) return null;
   const connected = state === 'connected';
+  const showFallback = !connected && student.recording_active && !streamError;
 
   return (
     <Modal open onClose={onClose} title={`Live — ${student.name}`}>
@@ -704,9 +733,27 @@ function ViewLiveModal({ student, testId, socket, cameFromViewAll, onClose, onBa
             controlsList="nodownload noremoteplayback nofullscreen"
             disablePictureInPicture
             onContextMenu={(e) => e.preventDefault()}
-            className="h-full w-full object-contain"
+            className={`h-full w-full object-contain ${connected ? 'block' : 'hidden'}`}
           />
-          {connected && (
+          {showFallback && (
+            <video
+              key={streamUrl}
+              src={streamUrl}
+              autoPlay
+              playsInline
+              muted={!unmuted}
+              controlsList="nodownload noremoteplayback nofullscreen"
+              disablePictureInPicture
+              onContextMenu={(e) => e.preventDefault()}
+              onError={() => setStreamError(true)}
+              onEnded={(e) => {
+                e.target.src = `${streamUrl}&_t=${Date.now()}`;
+                e.target.play().catch(() => {});
+              }}
+              className="h-full w-full object-contain"
+            />
+          )}
+          {(connected || showFallback) && (
             <button
               type="button"
               onClick={() => setUnmuted((v) => !v)}
@@ -717,7 +764,23 @@ function ViewLiveModal({ student, testId, socket, cameFromViewAll, onClose, onBa
             </button>
           )}
           {connected && <LiveBadge />}
-          {!connected && (
+          {!connected && showFallback && (
+            <div className="absolute left-2 top-2 z-10 flex items-center gap-2">
+              <span className="flex items-center gap-1 rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Stream Feed
+              </span>
+              {state === 'connection-failed' && (
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-black/80"
+                >
+                  Retry WebRTC
+                </button>
+              )}
+            </div>
+          )}
+          {!connected && !showFallback && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70 px-6 text-center text-sm font-medium text-white">
               {state === 'connection-failed' ? (
                 <div className="space-y-2">

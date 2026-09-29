@@ -25,10 +25,13 @@ const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 15000;
 
 function wsUrl() {
+  const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('campusync-token') || '') : '';
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  if (typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || !window.location.hostname.includes('localhost'))) {
+    return `wss://campus-orbis-backend-1.onrender.com/ws/live${tokenParam}`;
+  }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // Same host the REST API is served from in this app's deployment (no
-  // separate API domain), so no extra config is needed here.
-  return `${proto}//${window.location.host}/ws/live`;
+  return `${proto}//${window.location.host}/ws/live${tokenParam}`;
 }
 
 function scheduleReconnect() {

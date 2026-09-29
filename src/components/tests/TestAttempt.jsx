@@ -225,6 +225,7 @@ function useTestMonitoringRecorder(testId, stream) {
           return;
         }
       }
+      const chunks = [];
       recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {
         if (chunks.length) {

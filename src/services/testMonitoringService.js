@@ -19,11 +19,23 @@ export function fetchTestMonitoring(testId) {
   return api.get(`/faculty/tests/${testId}/monitoring`).then((res) => res.data);
 }
 
+function getAuthTokenParam() {
+  try {
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('campusync-token') : null;
+    return token ? `?token=${encodeURIComponent(token)}` : '';
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Faculty-only live view of one student's most recent camera+mic chunk.
  * Always served inline (never as a download) — point a <video> at this.
  */
-export const monitoringStreamUrl = (testId, username) => `/api/faculty/tests/${testId}/monitoring/${username}/stream`;
+export const monitoringStreamUrl = (testId, username) => {
+  const tokenParam = getAuthTokenParam();
+  return `/api/faculty/tests/${testId}/monitoring/${username}/stream${tokenParam}`;
+};
 
 /* ---------- HOD (read-only, department-wide) ----------
  * Identical response shapes to the faculty routes above — the only
@@ -38,7 +50,10 @@ export function fetchHodTestMonitoring(testId) {
   return api.get(`/hod/tests/${testId}/monitoring`).then((res) => res.data);
 }
 
-export const hodMonitoringStreamUrl = (testId, username) => `/api/hod/tests/${testId}/monitoring/${username}/stream`;
+export const hodMonitoringStreamUrl = (testId, username) => {
+  const tokenParam = getAuthTokenParam();
+  return `/api/hod/tests/${testId}/monitoring/${username}/stream${tokenParam}`;
+};
 
 /* ---------- Student ---------- */
 
