@@ -475,7 +475,7 @@ export default function Competition() {
         }}
       />
 
-      <LiveQuizView quizId={liveQuizId} onClose={() => setLiveQuizId(null)} />
+      {liveQuizId && <LiveQuizView quizId={liveQuizId} onClose={() => setLiveQuizId(null)} />}
     </div>
   );
 }
@@ -1248,6 +1248,19 @@ function LiveQuizView({ quizId, onClose }) {
     return () => clearInterval(tickRef.current);
   }, [session?.status, session?.current_index]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const confettiFiredRef = useRef({ between: null, finished: false });
+
+  useEffect(() => {
+    if (session?.status === 'between' && lastAnswer?.correct && confettiFiredRef.current.between !== session?.current_index) {
+      confettiFiredRef.current.between = session?.current_index;
+      fireConfetti();
+    }
+    if (session?.status === 'finished' && !confettiFiredRef.current.finished) {
+      confettiFiredRef.current.finished = true;
+      fireConfetti();
+    }
+  }, [session?.status, session?.current_index, lastAnswer?.correct]);
+
   if (!quizId) return null;
 
   const handleAnswer = async (optionIndex) => {
@@ -1284,19 +1297,6 @@ function LiveQuizView({ quizId, onClose }) {
     { bg: 'bg-[#8e24aa]', hover: 'hover:bg-[#ab47bc]', border: 'border-[#ce93d8]', shadow: 'shadow-[#8e24aa]/40', icon: '★' },
     { bg: 'bg-[#e65100]', hover: 'hover:bg-[#f57c00]', border: 'border-[#ffb74d]', shadow: 'shadow-[#e65100]/40', icon: '⬟' },
   ];
-
-  const confettiFiredRef = useRef({ between: null, finished: false });
-
-  useEffect(() => {
-    if (session?.status === 'between' && lastAnswer?.correct && confettiFiredRef.current.between !== session?.current_index) {
-      confettiFiredRef.current.between = session?.current_index;
-      fireConfetti();
-    }
-    if (session?.status === 'finished' && !confettiFiredRef.current.finished) {
-      confettiFiredRef.current.finished = true;
-      fireConfetti();
-    }
-  }, [session?.status, session?.current_index, lastAnswer?.correct]);
 
   return (
     <div className="fixed inset-0 z-[300] bg-[#090d16] text-white flex flex-col overflow-hidden select-none animate-fadeIn">
